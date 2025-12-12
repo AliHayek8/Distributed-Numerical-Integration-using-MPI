@@ -11,7 +11,7 @@ The project includes:
   - `mpi_integrate_v2.cpp`
   - `mpi_integrate_v3.cpp`
 - A `Makefile` for building all versions
-- Documentation files (`integrate.txt`, `integrate_en.txt`)
+- Documentation files (`integrate.txt`)
 
 ---
 
@@ -24,8 +24,7 @@ project/
 │── mpi_integrate_v2.cpp # MPI version 2 - improved load distribution
 │── mpi_integrate_v3.cpp # MPI version 3 - optimized communication & performance
 │── Makefile # Build instructions
-│── integrate.txt # Documentation (Arabic)
-│── integrate_en.txt # Documentation (English)
+│── integrate.txt # Documentation 
 
 ---
 

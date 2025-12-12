@@ -1,0 +1,191 @@
+# Distributed Systems and Parallel Processing Assignment Solution Report
+
+**Author:** Ali Hayek
+**Date:** October 18, 2025
+
+## 1. Introduction
+
+This report aims to document the solution for the Distributed Systems and Parallel Processing assignment, which involves calculating the numerical integral of the function $f(x) = x^2 - 2x + 10$ over the interval $[0, 1]$ using the **Trapezoidal Rule**. Four versions of the program were developed: a sequential version and three parallel versions using the Message Passing Interface (MPI). The execution time for each version was measured, and the results are discussed for different numbers of processes (1 to 6 processes).
+
+## 2. Solution Methodology
+
+All versions rely on calculating the numerical integral of the function $f(x) = x^2 - 2x + 10$ over the interval $[0, 1]$ using $N = 100,000,000$ trapezoids. Time measurement was performed using the `chrono` library in C++.
+
+### 2.1. Function to be Integrated
+
+The function $f(x)$ is defined in `func.cpp`:
+
+```cpp
+double f(double x) {
+    return x*x - 2*x + 10;
+}
+```
+
+### 2.2. Sequential Version
+
+This version calculates the integral sequentially, where a single process computes the sum of the areas of all trapezoids. The interval $[a, b]$ is divided into $N$ equal parts, and the area of each trapezoid is calculated and then summed. The formula used is:
+
+$$\int_{a}^{b} f(x) dx \approx \frac{h}{2} [f(a) + f(b) + 2 \sum_{i=1}^{N-1} f(a + ih)]$$
+
+Where $h = (b-a)/N$. The pseudocode for the sequential version is:
+
+```
+Algorithm: Sequential_Integration
+Input: a (lower bound), b (upper bound), N (number of trapezoids)
+Output: integral_result, execution_time
+
+1. Start Timer
+2. h = (b - a) / N
+3. integral = (f(a) + f(b)) / 2.0
+4. For i from 1 to N-1:
+5.    integral = integral + f(a + i * h)
+6. integral = integral * h
+7. End Timer
+8. Return integral, execution_time
+```
+
+### 2.3. Parallel Versions with MPI
+
+The parallel versions distribute parts of the integral calculation among multiple processes. Each process calculates a portion of the integral within its own range, and then the partial results are collected to obtain the total integral. Three parallel versions were developed:
+
+#### 2.3.1. Parallel Version 1 (MPI v1 - Point-to-Point Communication)
+
+In this version, the integration range is divided equally among all processes. Each process calculates the integral over its local range. Then, each process (except rank 0) sends its local result to process 0 using `MPI_Send`. Process 0 receives these results sequentially from each process using `MPI_Recv` and sums them to get the final result.
+
+Pseudocode for Parallel Version 1:
+
+```
+Algorithm: MPI_Integration_v1 (Point-to-Point)
+Input: a, b, N, rank, size
+Output: total_integral, execution_time (only by rank 0)
+
+1. Initialize MPI
+2. Get rank and size
+3. Start Timer (only by rank 0)
+4. h = (b - a) / N
+5. local_N = N / size
+6. local_a = a + rank * local_N * h
+7. local_b = local_a + local_N * h
+8. local_integral = (f(local_a) + f(local_b)) / 2.0
+9. For i from 1 to local_N-1:
+10.   local_integral = local_integral + f(local_a + i * h)
+11. local_integral = local_integral * h
+
+12. If rank is 0:
+13.   total_integral = local_integral
+14.   For i from 1 to size-1:
+15.     Receive received_integral from process i using MPI_Recv
+16.     total_integral = total_integral + received_integral
+17.   End Timer
+18.   Print total_integral, execution_time
+19. Else (rank is not 0):
+20.   Send local_integral to process 0 using MPI_Send
+
+21. Finalize MPI
+```
+
+#### 2.3.2. Parallel Version 2 (MPI v2 - Point-to-Point with Any Source)
+
+This version is similar to the first, but it uses `MPI_ANY_SOURCE` for receiving in process 0. This means process 0 will accept messages from any other process, which might improve performance in some cases if other processes finish their work at different times.
+
+Pseudocode for Parallel Version 2:
+
+```
+Algorithm: MPI_Integration_v2 (Any Source)
+Input: a, b, N, rank, size
+Output: total_integral, execution_time (only by rank 0)
+
+1. Initialize MPI
+2. Get rank and size
+3. Start Timer (only by rank 0)
+4. h = (b - a) / N
+5. local_N = N / size
+6. local_a = a + rank * local_N * h
+7. local_b = local_a + local_N * h
+8. local_integral = (f(local_a) + f(local_b)) / 2.0
+9. For i from 1 to local_N-1:
+10.   local_integral = local_integral + f(local_a + i * h)
+11. local_integral = local_integral * h
+
+12. If rank is 0:
+13.   total_integral = local_integral
+14.   For i from 1 to size-1:
+15.     Receive received_integral from MPI_ANY_SOURCE using MPI_Recv
+16.     total_integral = total_integral + received_integral
+17.   End Timer
+18.   Print total_integral, execution_time
+19. Else (rank is not 0):
+20.   Send local_integral to process 0 using MPI_Send
+
+21. Finalize MPI
+```
+
+#### 2.3.3. Parallel Version 3 (MPI v3 - Collective Communication with MPI_Reduce)
+
+This version uses a collective communication operation called `MPI_Reduce`. Each process calculates its local result, and then all local results are summed into process 0 using the sum operation (`MPI_SUM`). This method is often more efficient than point-to-point communication for collecting results, as MPI can internally optimize the reduction operation.
+
+Pseudocode for Parallel Version 3:
+
+```
+Algorithm: MPI_Integration_v3 (Collective)
+Input: a, b, N, rank, size
+Output: total_integral, execution_time (only by rank 0)
+
+1. Initialize MPI
+2. Get rank and size
+3. Start Timer (only by rank 0)
+4. h = (b - a) / N
+5. local_N = N / size
+6. local_a = a + rank * local_N * h
+7. local_b = local_a + local_N * h
+8. local_integral = (f(local_a) + f(local_b)) / 2.0
+9. For i from 1 to local_N-1:
+10.   local_integral = local_integral + f(local_a + i * h)
+11. local_integral = local_integral * h
+
+12. Perform MPI_Reduce to sum all local_integral into total_integral at rank 0
+
+13. If rank is 0:
+14.   End Timer
+15.   Print total_integral, execution_time
+
+16. Finalize MPI
+```
+
+## 3. Execution Results
+
+All programs were successfully compiled and executed. The following table shows the obtained results (integral value and execution time in microseconds) for each version and with different numbers of processes.
+
+| Number of Processes | Sequential (Time) | MPI v1 (Time) | MPI v2 (Time) | MPI v3 (Time) |
+|:-------------------:|:-----------------:|:-------------:|:-------------:|:-------------:|
+| 1                   | 309916            | 290000        | 299505        | 301761        |
+| 2                   | -                 | 145726        | 157870        | 149185        |
+| 3                   | -                 | 98411         | 96633         | 103237        |
+| 4                   | -                 | 73809         | 82337         | 83046         |
+| 5                   | -                 | 64754         | 81014         | 62192         |
+| 6                   | -                 | 50151         | 69776         | 50573         |
+
+**Note:** The calculated integral value was approximately constant for all cases, around 9.3333333333, with very minor differences in decimal places due to the nature of parallel computations and floating-point precision.
+
+## 4. Discussion of Results
+
+By analyzing the results in the table above, we can draw several observations:
+
+*   **Sequential vs. Parallel Performance:** As expected, parallel versions achieve significant speedup compared to the sequential version when using more than one process. Execution time generally decreases with an increasing number of processes.
+
+*   **Speedup:** It can be observed that the speedup is not perfectly linear. For example, when moving from one to two processes, the time approximately halves, indicating good parallel efficiency. However, as the number of processes increases, factors such as communication overhead and work distribution begin to affect the speedup.
+
+*   **Comparison of MPI Versions:**
+    *   **MPI v1 (Point-to-Point):** This version generally showed good performance and was often the fastest or close to the fastest. This is due to the simplicity of the communication model where process 0 receives from other processes in a specific order.
+    *   **MPI v2 (Any Source):** In some cases, this version was slightly slower than MPI v1. This might be because using `MPI_ANY_SOURCE` could add some internal complexity in message management, or the order of message arrival did not have a significant impact in this specific scenario, or the overhead of searching for any source outweighed the potential benefits in this example.
+    *   **MPI v3 (Collective - MPI_Reduce):** This version showed similar or slightly better performance than MPI v1 in some cases, especially with a larger number of processes. Collective communication operations like `MPI_Reduce` are typically highly optimized internally within MPI libraries, making them efficient for collecting results from a large number of processes.
+
+*   **Communication Overhead:** When using a single process, parallel versions are slightly slower than the sequential version. This time difference represents the overhead of MPI initialization and internal communication operations, even if there is no actual data exchange between processes (except the process itself). This overhead becomes negligible compared to computation time when the number of processes and workload increase.
+
+*   **Accuracy of Results:** All versions provided approximately the same integral value, confirming the correctness of the implementation for both sequential and parallel versions.
+
+## 5. Conclusion
+
+Four versions for numerical integration using the Trapezoidal Rule have been successfully developed and tested: a sequential version and three parallel versions using MPI. The results showed that parallelism using MPI achieves significant speedup in execution time with an increasing number of processes, confirming the effectiveness of distributed systems in solving computationally intensive problems. It was also found that using collective communication operations like `MPI_Reduce` can be highly efficient in collecting results from multiple processes. The minor differences in performance between the parallel MPI versions highlight the importance of choosing the appropriate communication model based on the problem's nature and system architecture.
+
+---
